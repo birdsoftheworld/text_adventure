@@ -6,7 +6,9 @@ mod english {
 
 pub mod item {
     use std::any::{Any, TypeId};
+    use std::cell::RefCell;
     use std::collections::HashMap;
+    use std::rc::Rc;
     use crate::english::PREFIXES;
 
     #[derive(Debug, Clone)]
@@ -43,8 +45,21 @@ pub mod item {
         }
     }
 
-    pub trait Component {
+    pub trait Component {}
 
+    pub struct Container {
+        contents: Vec<Rc<RefCell<Entity>>>
+    }
+
+    impl Component for Container {}
+    impl Container {
+        pub fn add_into(&mut self, entity: Rc<RefCell<Entity>>) {
+            self.contents.push(entity)
+        }
+
+        pub fn remove_from(&mut self, entity: Rc<RefCell<Entity>>) {
+
+        }
     }
 }
 
