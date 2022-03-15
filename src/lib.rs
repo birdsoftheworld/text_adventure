@@ -5,10 +5,6 @@ mod english {
 }
 
 pub mod item {
-    use std::any::{Any, TypeId};
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::rc::Rc;
     use crate::english::PREFIXES;
 
     #[derive(Debug, Clone)]
@@ -24,41 +20,6 @@ pub mod item {
 
         pub fn from_refs(data: Vec<&str>) -> ItemString {
             ItemString::new(data.iter().map(|slice| (*slice).to_owned()).collect())
-        }
-    }
-
-    pub struct Entity {
-        components: HashMap<TypeId, Box<dyn Component>>
-    }
-
-    impl Entity {
-        fn add_component(&mut self, component: Box<dyn Component>) -> bool {
-            self.components.insert(component.type_id(), component).is_some()
-        }
-
-        fn remove_component(&mut self, component: Box<dyn Component>) -> bool {
-            self.components.remove(&component.type_id()).is_some()
-        }
-
-        fn get_component(&mut self, component: Box<dyn Component>) -> Option<&Box<dyn Component>> {
-            self.components.get(&component.type_id())
-        }
-    }
-
-    pub trait Component {}
-
-    pub struct Container {
-        contents: Vec<Rc<RefCell<Entity>>>
-    }
-
-    impl Component for Container {}
-    impl Container {
-        pub fn add_into(&mut self, entity: Rc<RefCell<Entity>>) {
-            self.contents.push(entity)
-        }
-
-        pub fn remove_from(&mut self, entity: Rc<RefCell<Entity>>) {
-
         }
     }
 }

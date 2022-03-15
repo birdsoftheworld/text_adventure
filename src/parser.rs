@@ -19,7 +19,7 @@ pub mod command {
     use nom::branch::alt;
     use nom::bytes::complete::tag;
     use nom::sequence::{preceded, pair, terminated};
-    use nom::combinator::{cut, map, opt, success};
+    use nom::combinator::{cut, map, opt, success, peek};
     use nom::multi::{many1, many_till};
     use crate::command::Command;
     use crate::item::ItemString;
@@ -64,9 +64,14 @@ pub mod command {
                         ),
                         |(words, _)| words
                     ),
-                    cut(
-                        many1(
-                            whole_word
+                    preceded(
+                        peek(
+                            space
+                        ),
+                        cut(
+                            many1(
+                                whole_word
+                            )
                         )
                     )
                 )
