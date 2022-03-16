@@ -1,6 +1,6 @@
 use nom::IResult;
 use nom::character::complete::{alphanumeric1, multispace1};
-    use nom::sequence::preceded;
+use nom::sequence::preceded;
 
 fn space(input: &str) -> IResult<&str, &str> {
     multispace1(input)
@@ -127,9 +127,12 @@ pub mod command {
                         ),
                         |(words, _)| words
                     ),
-                    cut(
-                        many1(
-                            whole_word
+                    preceded(
+                        peek(space),
+                        cut(
+                            many1(
+                                whole_word
+                            )
                         )
                     )
                 )
