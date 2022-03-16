@@ -15,16 +15,70 @@ fn whole_word(input: &str) -> IResult<&str, &str> {
 }
 
 pub mod command {
-    use nom::IResult;
+    use nom::{Err, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::tag;
     use nom::sequence::{preceded, pair, terminated};
     use nom::combinator::{cut, map, opt, success, peek};
+    use nom::Err::Error;
+    use nom::error::context;
     use nom::multi::{many1, many_till};
     use crate::command::Command;
     use crate::item::ItemString;
     use crate::parser::{space, whole_word};
-    pub fn parse_command(input: &str) -> IResult<&str, Command> {
+    use crate::parser::command::error::{CommandParseError, CommandParseType};
+
+    pub mod error {
+        use nom::error::{Error, ErrorKind, ParseError};
+
+        pub enum CommandParseType {
+            Take,
+            TakeFrom,
+            Put,
+            Inventory,
+            Look,
+            Unknown
+        }
+
+        pub enum CommandParseError<I> {
+            MissingArg(CommandParseType, usize),
+            Unknown,
+            Nom(I, ErrorKind)
+        }
+
+        impl<I> ParseError<I> for CommandParseError<I> {
+            fn from_error_kind(input: I, kind: ErrorKind) -> Self {
+                CommandParseError::Nom(input, kind)
+            }
+
+            fn append(_: I, _: ErrorKind, other: Self) -> Self {
+                other
+            }
+        }
+
+        impl<'a> From<Error<&'a str>> for CommandParseError<&'a str> {
+            fn from(e: Error<&'a str>) -> Self {
+                CommandParseError::Nom(e.input, e.code)
+            }
+        }
+    }
+
+    pub fn parse_full_command(input: &str) -> Result<Command, CommandParseError<String>> {
+        let res = parse_command(input);
+        match res {
+            Ok(_) => {
+                unimplemented!()
+            }
+            Err(Error(a)) => {
+                unimplemented!()
+            }
+            _ => {
+                unimplemented!()
+            }
+        }
+    }
+
+    fn parse_command<'a>(input: &'a str) -> IResult<&str, Command, CommandParseError<&'a str>> {
         alt((
             parse_take_from,
             parse_take,
@@ -32,10 +86,16 @@ pub mod command {
             parse_inventory,
             parse_look,
             parse_unknown
-        ))(input)
+        ))(input).map_err(Err::convert)
     }
     
-    fn parse_take(input: &str) -> IResult<&str, Command> {
+    fn parse_take(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
+        let (i, _) = take(input).map_err(Err::convert)?;
+        let res = cut(
+            many1(
+                whole_word
+            )
+        )(i).map_err(Err::convert)?;
         map(
             preceded(
                 take,
@@ -46,7 +106,7 @@ pub mod command {
                 )
             ),
             |words| Command::Take(ItemString::from_refs(words))
-        )(input)
+        )(input).map_err(Err::convert)
     }
 
     fn parse_take_from(input: &str) -> IResult<&str, Command> {
