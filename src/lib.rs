@@ -7,7 +7,7 @@ use crate::item::NameString;
 pub mod parser;
 pub mod command;
 pub mod item;
-mod english;
+pub mod english;
 
 pub enum ErrorType {
     CommandUnknown,
@@ -18,7 +18,7 @@ pub struct Adventure {
     world: World
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 #[storage(NullStorage)]
 pub struct Item;
 

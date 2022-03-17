@@ -1,4 +1,4 @@
-use nom::IResult;
+use nom::{IResult};
 use nom::character::complete::{alphanumeric1, multispace1};
 use nom::sequence::preceded;
 use nom::combinator::{peek, eof};
@@ -24,8 +24,8 @@ pub mod command {
     use nom::{Err, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::tag;
-    use nom::sequence::{preceded, terminated};
-    use nom::combinator::{cut, map, opt, peek, not, eof};
+    use nom::sequence::{preceded, terminated, tuple};
+    use nom::combinator::{cut, map, opt, peek};
     use nom::multi::{many1, many_till};
     use crate::command::Command;
     use crate::item::NameString;
@@ -34,7 +34,6 @@ pub mod command {
 
     pub mod error {
         use nom::error::{Error, ErrorKind, ParseError};
-        use std::fmt::Display;
 
         #[derive(Debug)]
         pub enum CommandParseType {
@@ -223,6 +222,15 @@ pub mod command {
                 tag("into"),
                 tag("onto"),
                 terminated(
+                    tag("inside"),
+                    opt(
+                        preceded(
+                            space,
+                            tag("of")
+                        )
+                    )
+                ),
+                terminated(
                     alt((
                         tag("in"),
                         tag("on")
@@ -233,7 +241,7 @@ pub mod command {
                             tag("to")
                         )
                     )
-                )
+                ),
             )),
             word_ending
         )(input)
@@ -259,7 +267,12 @@ pub mod command {
     fn parse_look(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
         let (i, _) = look(input).map_err(Err::convert)?;
 
-        let in_at_on = opt(in_at_on)(i).unwrap();
+        let (i, in_at_on) = opt(
+            preceded(
+                space,
+                in_at_on
+            )
+        )(i).unwrap();
         
         let res = opt(many1(whole_word))(i).unwrap();
         

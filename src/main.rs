@@ -1,5 +1,7 @@
 use adventure::parser::command::parse_full_command;
 use std::io::{self, Write};
+use adventure::Adventure;
+use adventure::english::error::interpret_cmd_err;
 
 fn main() {
     let adventure = Adventure::new();
@@ -13,9 +15,10 @@ fn main() {
 
         let com = buffer.to_lowercase();
         let parsed = parse_full_command(&com);
-        if let Err(err) = parsed {
-            
+
+        match parsed {
+            Err(err) => println!("{}", interpret_cmd_err(err)),
+            Ok(ok) => println!("{:?}", ok)
         }
-        println!("{:?}", parsed);
     }
 }
