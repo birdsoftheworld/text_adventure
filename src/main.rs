@@ -1,4 +1,4 @@
-use my_project::parser::command::parse_command;
+use my_project::parser::command::parse_full_command;
 use std::io::{self, Write};
 
 fn main() {
@@ -10,7 +10,7 @@ fn main() {
         io::stdin().read_line(&mut buffer).unwrap();
 
         let com = buffer.to_lowercase();
-        let parsed = parse_command(&com).unwrap();
+        let parsed = parse_full_command(&com).unwrap();
         println!("{:?}", parsed);
     }
 }

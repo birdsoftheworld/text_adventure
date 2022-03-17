@@ -1,6 +1,8 @@
 use nom::IResult;
 use nom::character::complete::{alphanumeric1, multispace1};
 use nom::sequence::preceded;
+use nom::combinator::{peek, eof};
+use nom::branch::alt;
 
 fn space(input: &str) -> IResult<&str, &str> {
     multispace1(input)
@@ -14,23 +16,28 @@ fn whole_word(input: &str) -> IResult<&str, &str> {
     preceded(space, word)(input)
 }
 
+fn word_ending(input: &str) -> IResult<&str, &str> {
+    peek(alt((space, eof)))(input)
+}
+
 pub mod command {
     use nom::{Err, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::tag;
     use nom::sequence::{preceded, pair, terminated};
-    use nom::combinator::{cut, map, opt, success, peek};
+    use nom::combinator::{cut, map, opt, success, peek, not, eof};
     use nom::Err::Error;
-    use nom::error::context;
     use nom::multi::{many1, many_till};
+    use nom::character::complete::alphanumeric1;
     use crate::command::Command;
     use crate::item::ItemString;
-    use crate::parser::{space, whole_word};
+    use crate::parser::{space, whole_word, word_ending};
     use crate::parser::command::error::{CommandParseError, CommandParseType};
 
     pub mod error {
         use nom::error::{Error, ErrorKind, ParseError};
 
+        #[derive(Debug)]
         pub enum CommandParseType {
             Take,
             TakeFrom,
@@ -40,6 +47,7 @@ pub mod command {
             Unknown
         }
 
+        #[derive(Debug)]
         pub enum CommandParseError<I> {
             MissingArg(CommandParseType, usize),
             Unknown,
@@ -63,14 +71,14 @@ pub mod command {
         }
     }
 
-    pub fn parse_full_command(input: &str) -> Result<Command, CommandParseError<String>> {
+    pub fn parse_full_command(input: &str) -> Result<Command, CommandParseError<&str>> {
         let res = parse_command(input);
         match res {
-            Ok(_) => {
-                unimplemented!()
+            Ok((_, command)) => {
+                Ok(command)
             }
-            Err(Error(a)) => {
-                unimplemented!()
+            Err(Err::Failure(a)) => {
+                Err(a)
             }
             _ => {
                 unimplemented!()
@@ -86,205 +94,205 @@ pub mod command {
             parse_inventory,
             parse_look,
             parse_unknown
-        ))(input).map_err(Err::convert)
+        ))(input)
     }
     
     fn parse_take(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
         let (i, _) = take(input).map_err(Err::convert)?;
-        let res = cut(
-            many1(
-                whole_word
+        let res = many1(whole_word)(i);
+        if let Err(_) = res {
+            return Err(
+                Err::Failure(CommandParseError::MissingArg(CommandParseType::Take, 0))
             )
-        )(i).map_err(Err::convert)?;
-        map(
-            preceded(
-                take,
-                cut(
-                    many1(
-                        whole_word
-                    )
-                )
-            ),
-            |words| Command::Take(ItemString::from_refs(words))
-        )(input).map_err(Err::convert)
+        }
+        let (i, name) = res.unwrap();
+        let item = ItemString::from_refs(name);
+        Ok((i, Command::Take(item)))
     }
 
-    fn parse_take_from(input: &str) -> IResult<&str, Command> {
-        map(
+    fn parse_take_from(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
+        let (i, _) = take(input).map_err(Err::convert)?;
+        let (i, (first, _)) = many_till(
+            whole_word,
             preceded(
-                take,
-                pair(
-                    map(
-                        many_till(
-                            whole_word,
-                            preceded(
-                                space,
-                                from
-                            )
-                        ),
-                        |(words, _)| words
-                    ),
-                    preceded(
-                        peek(
-                            space
-                        ),
-                        cut(
-                            many1(
-                                whole_word
-                            )
-                        )
-                    )
-                )
-            ),
-            |(item, source)| Command::TakeFrom {item: ItemString::from_refs(item), source: ItemString::from_refs(source)}
-        )(input)
+                space,
+                from
+            )
+        )(i).map_err(Err::convert)?;
+        peek(space)(i).map_err(Err::convert)?;
+        let res = many1(whole_word)(i);
+        if let Err(_) = res {
+            return Err(Err::Failure(CommandParseError::MissingArg(CommandParseType::TakeFrom, 1)))
+        }
+        let (i, second) = res.unwrap();
+        let item = ItemString::from_refs(first);
+        let source = ItemString::from_refs(second);
+        
+        Ok((i, Command::TakeFrom {item, source}))
     }
 
     fn take(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("take"),
-            tag("grab"),
-            tag("t"),
-            terminated(
-                tag("pick"),
-                preceded(
-                    space,
-                    tag("up")
+        terminated(
+            alt((
+                tag("take"),
+                tag("grab"),
+                tag("t"),
+                terminated(
+                    tag("pick"),
+                    preceded(
+                        space,
+                        tag("up")
+                    )
                 )
-            )
-        ))(input)
+            )),
+            word_ending
+        )(input)
     }
 
     fn from(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("from"),
-            tag("outta"),
-            terminated(
-                tag("out"),
-                cut(preceded(
-                    space,
-                    alt((
-                        tag("of"),
-                        tag("from")
+        terminated(
+            alt((
+                tag("from"),
+                tag("outta"),
+                terminated(
+                    tag("out"),
+                    cut(preceded(
+                        space,
+                        alt((
+                            tag("of"),
+                            tag("from")
+                        ))
                     ))
-                ))
-            )
-        ))(input)
+                )
+            )),
+            word_ending
+        )(input)
     }
 
-    fn parse_put(input: &str) -> IResult<&str, Command> {
-        map(
-            preceded(
-                put,
-                pair(
-                    map(
-                        many_till(
-                            whole_word,
-                            preceded(
-                                space,
-                                into
-                            )
-                        ),
-                        |(words, _)| words
-                    ),
-                    preceded(
-                        peek(space),
-                        cut(
-                            many1(
-                                whole_word
-                            )
-                        )
-                    )
-                )
+    fn parse_put(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
+        let (i, _) = put(input).map_err(Err::convert)?;
+        match peek(whole_word)(i) {
+            Err(_) => return Err(
+                Err::Failure(CommandParseError::MissingArg(CommandParseType::Put, 0))
             ),
-            |(item, destination)| Command::Put {item: ItemString::from_refs(item), destination: ItemString::from_refs(destination)}
-        )(input)
+            _ => ()
+        };
+    
+        let res = many_till(
+            whole_word,
+            preceded(
+                space,
+                into
+            )
+        )(i);
+    
+        let (i, (first, _)) = match res {
+            Err(_) => return Err(
+                Err::Failure(CommandParseError::MissingArg(CommandParseType::Put, 1))
+            ),
+            Ok(v) => v
+        };
+        
+        let res = many1(whole_word)(i);
+        let (i, second) = match res {
+            Err(_) => return Err(
+                Err::Failure(CommandParseError::MissingArg(CommandParseType::Put, 1))
+            ),
+            Ok(v) => v
+        };
+
+        let item = ItemString::from_refs(first);
+        let destination = ItemString::from_refs(second);
+        
+        Ok((i, Command::Put {item, destination}))
     }
 
     fn put(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("put"),
-            tag("move"),
-            tag("add")
-        ))(input)
+        terminated(
+            alt((
+                tag("put"),
+                tag("move"),
+                tag("add")
+            )),
+            word_ending
+        )(input)
     }
 
     fn into(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("into"),
-            tag("onto"),
-            terminated(
-                alt((
-                    tag("in"),
-                    tag("on")
-                )),
-                opt(
-                    preceded(
-                        space,
-                        tag("to")
+        terminated(
+            alt((
+                tag("into"),
+                tag("onto"),
+                terminated(
+                    alt((
+                        tag("in"),
+                        tag("on")
+                    )),
+                    opt(
+                        preceded(
+                            space,
+                            tag("to")
+                        )
                     )
                 )
-            )
-        ))(input)
+            )),
+            word_ending
+        )(input)
     }
 
-    fn parse_inventory(input: &str) -> IResult<&str, Command> {
+    fn parse_inventory(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
         map(
             inventory,
             |_| Command::Inventory
-        )(input)
+        )(input).map_err(Err::convert)
     }
 
     fn inventory(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("inventory"),
-            tag("items")
-        ))(input)
-    }
-
-    fn parse_look(input: &str) -> IResult<&str, Command> {
-        preceded(
-            look,
-            map(
-                alt((
-                    map(
-                        preceded(
-                            opt(
-                                preceded(
-                                    space,
-                                    in_at_on
-                                )
-                            ),
-                            many1(
-                                whole_word
-                            )
-                        ),
-                        |words| Some(ItemString::from_refs(words))
-                    ),
-                    success(None)
-                )),
-                |option| Command::Look(option)
-            )
+        terminated(
+            alt((
+                tag("inventory"),
+                tag("items")
+            )),
+            word_ending
         )(input)
     }
 
+    fn parse_look(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
+        let (i, _) = look(input).map_err(Err::convert)?;
+
+        let res = opt(many1(whole_word))(i).unwrap();
+        
+        let target = match res {
+            (i, None) => (i, Command::Look(None)),
+            (i, Some(words)) => (i, Command::Look(Some(ItemString::from_refs(words))))
+        };
+
+        Ok(target)
+    }
+
     fn look(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("look"),
-            tag("l"),
-            tag("inspect")
-        ))(input)
+        terminated(
+            alt((
+                tag("look"),
+                tag("l"),
+                tag("inspect")
+            )),
+            word_ending
+        )(input)
     }
 
     fn in_at_on(input: &str) -> IResult<&str, &str> {
-        alt((
-            tag("at"),
-            tag("in"),
-            tag("on")
-        ))(input)
+        terminated(
+            alt((
+                tag("at"),
+                tag("in"),
+                tag("on")
+            )),
+            word_ending
+        )(input)
     }
     
-    fn parse_unknown(_input: &str) -> IResult<&str, Command> {
-        Ok(("", Command::Unknown))
+    fn parse_unknown(_: &str) -> IResult<&str, Command, CommandParseError<&str>> {
+        Err(Err::Failure(CommandParseError::Unknown))
     }
 }

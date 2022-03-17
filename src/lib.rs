@@ -7,7 +7,7 @@ pub mod command;
 pub mod item;
 mod english;
 
-enum ErrorType {
+pub enum ErrorType {
     CommandUnknown,
     DoesNotExist(ItemString),
 }
