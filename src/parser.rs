@@ -24,18 +24,17 @@ pub mod command {
     use nom::{Err, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::tag;
-    use nom::sequence::{preceded, pair, terminated};
-    use nom::combinator::{cut, map, opt, success, peek, not, eof};
-    use nom::Err::Error;
+    use nom::sequence::{preceded, terminated};
+    use nom::combinator::{cut, map, opt, peek, not, eof};
     use nom::multi::{many1, many_till};
-    use nom::character::complete::alphanumeric1;
     use crate::command::Command;
-    use crate::item::ItemString;
+    use crate::item::NameString;
     use crate::parser::{space, whole_word, word_ending};
     use crate::parser::command::error::{CommandParseError, CommandParseType};
 
     pub mod error {
         use nom::error::{Error, ErrorKind, ParseError};
+        use std::fmt::Display;
 
         #[derive(Debug)]
         pub enum CommandParseType {
@@ -106,7 +105,7 @@ pub mod command {
             )
         }
         let (i, name) = res.unwrap();
-        let item = ItemString::from_refs(name);
+        let item = NameString::from_refs(name);
         Ok((i, Command::Take(item)))
     }
 
@@ -125,8 +124,8 @@ pub mod command {
             return Err(Err::Failure(CommandParseError::MissingArg(CommandParseType::TakeFrom, 1)))
         }
         let (i, second) = res.unwrap();
-        let item = ItemString::from_refs(first);
-        let source = ItemString::from_refs(second);
+        let item = NameString::from_refs(first);
+        let source = NameString::from_refs(second);
         
         Ok((i, Command::TakeFrom {item, source}))
     }
@@ -201,8 +200,8 @@ pub mod command {
             Ok(v) => v
         };
 
-        let item = ItemString::from_refs(first);
-        let destination = ItemString::from_refs(second);
+        let item = NameString::from_refs(first);
+        let destination = NameString::from_refs(second);
         
         Ok((i, Command::Put {item, destination}))
     }
@@ -260,11 +259,16 @@ pub mod command {
     fn parse_look(input: &str) -> IResult<&str, Command, CommandParseError<&str>> {
         let (i, _) = look(input).map_err(Err::convert)?;
 
+        let in_at_on = opt(in_at_on)(i).unwrap();
+        
         let res = opt(many1(whole_word))(i).unwrap();
         
         let target = match res {
-            (i, None) => (i, Command::Look(None)),
-            (i, Some(words)) => (i, Command::Look(Some(ItemString::from_refs(words))))
+            (i, None) => match in_at_on {
+                None => (i, Command::Look(None)),
+                Some(_) => return Err(Err::Failure(CommandParseError::MissingArg(CommandParseType::Look, 0)))
+            },
+            (i, Some(words)) => (i, Command::Look(Some(NameString::from_refs(words))))
         };
 
         Ok(target)
@@ -284,9 +288,28 @@ pub mod command {
     fn in_at_on(input: &str) -> IResult<&str, &str> {
         terminated(
             alt((
+                terminated(
+                    tag("inside"),
+                    opt(
+                        preceded(
+                            space,
+                            tag("of")
+                        )
+                    )
+                ),
+                terminated(
+                    tag("on"),
+                    opt(
+                        tuple((
+                            space,
+                            tag("top"),
+                            space,
+                            tag("of")
+                        ))
+                    )
+                ),
                 tag("at"),
                 tag("in"),
-                tag("on")
             )),
             word_ending
         )(input)

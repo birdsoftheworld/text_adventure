@@ -1,17 +1,17 @@
 use crate::english::PREFIXES;
 
 #[derive(Debug, Clone)]
-pub struct ItemString(Vec<String>);
+pub struct NameString(Vec<String>);
 
-impl ItemString {
-    pub fn new(mut data: Vec<String>) -> ItemString {
+impl NameString {
+    pub fn new(mut data: Vec<String>) -> NameString {
         if data.len() > 0 && PREFIXES.contains(&&data[0][..]) {
             data.remove(0);
         }
-        ItemString(data)
+        NameString(data)
     }
 
-    pub fn from_refs(data: Vec<&str>) -> ItemString {
-        ItemString::new(data.iter().map(|slice| (*slice).to_owned()).collect())
+    pub fn from_refs(data: Vec<&str>) -> NameString {
+        NameString::new(data.iter().map(|slice| (*slice).to_owned()).collect())
     }
 }

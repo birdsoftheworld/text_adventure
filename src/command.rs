@@ -1,17 +1,17 @@
-use crate::item::ItemString;
+use crate::item::NameString;
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Take(ItemString),
+    Take(NameString),
     TakeFrom {
-        item: ItemString,
-        source: ItemString
+        item: NameString,
+        source: NameString
     },
     Put {
-        item: ItemString,
-        destination: ItemString
+        item: NameString,
+        destination: NameString
     },
     Inventory,
-    Look(Option<ItemString>),
+    Look(Option<NameString>),
     Unknown
 }
