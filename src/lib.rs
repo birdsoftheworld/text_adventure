@@ -1,6 +1,5 @@
 use specs::prelude::*;
-use specs::Component;
-use specs::world::{Index, WorldExt};
+use specs::world::WorldExt;
 use crate::command::Command;
 use crate::item::NameString;
 
@@ -8,6 +7,7 @@ pub mod parser;
 pub mod command;
 pub mod item;
 pub mod english;
+mod component;
 
 pub enum ErrorType {
     CommandUnknown,
@@ -17,22 +17,6 @@ pub enum ErrorType {
 pub struct Adventure {
     world: World
 }
-
-#[derive(Component, Default)]
-#[storage(NullStorage)]
-pub struct Item;
-
-#[derive(Component, Default)]
-pub struct Container {
-    contents: Vec<Index>
-}
-
-#[derive(Component)]
-pub struct Room {
-}
-
-#[derive(Component, Default)]
-pub struct Named(String);
 
 impl Adventure {
     pub fn new() -> Adventure {
