@@ -1,6 +1,6 @@
 use crate::english::PREFIXES;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct NameString(Vec<String>);
 
 impl NameString {
