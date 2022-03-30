@@ -3,6 +3,7 @@ use specs::world::WorldExt;
 use crate::command::Command;
 use crate::item::NameString;
 use crate::component::*;
+use crate::story::create_story;
 
 pub mod parser;
 pub mod command;
@@ -10,20 +11,44 @@ pub mod item;
 pub mod english;
 mod component;
 
+mod story;
+
 pub enum ErrorType {
     CommandUnknown,
     DoesNotExist(NameString),
 }
 
+struct State {
+    room: Entity
+}
+
+impl State {
+    fn new(room: Entity) -> State {
+        State {
+            room
+        }
+    }
+}
+
 pub struct Adventure {
     world: World,
-    room: Entity
+    state: State
 }
 
 impl Adventure {
     pub fn new() -> Adventure {
+        let mut world = World::new();
+
+        create_story(&mut world);
+
+        let current_room_storage = world.read_storage::<CurrentRoom>();
+        for p in current_room_storage {
+
+        }
+
         let mut adventure = Adventure {
-            world: World::new()
+            world,
+            state: State::new(current_room)
         };
         adventure.register_components();
         adventure
@@ -53,7 +78,8 @@ impl Adventure {
 }
 
 fn resolve_name(name: &NameString, world: &World, parent: Entity) {
-    let vec = resolve_name_in(name, world, parent, Vec::new());
+    let mut vec = Vec::new();
+    resolve_name_in(name, world, parent, &mut vec);
     let name_storage = world.read_storage::<Named>();
     if let Some(named) = name_storage.get(parent) {
         if named.is_referred_to_by(name) {
@@ -62,22 +88,20 @@ fn resolve_name(name: &NameString, world: &World, parent: Entity) {
     }
 }
 
-fn resolve_name_in(name: &NameString, world: &World, parent: Entity, found: Vec<(Entity, Entity)>) -> Vec<(Entity, Entity)> {
+fn resolve_name_in(name: &NameString, world: &World, parent: Entity, mut found: &Vec<(Entity, Entity)>) {
     let con_storage = world.read_storage::<Container>();
     let name_storage = world.read_storage::<Named>();
     let container = con_storage.get(parent).unwrap();
 
     let contents = container.get_contents();
-    for entity in container {
-        if let Some(named) = name_storage.get(entity) {
+    for entity in contents {
+        if let Some(named) = name_storage.get(*entity) {
             if named.is_referred_to_by(name) {
-                found.push((parent, entity));
+                found.push((parent, *entity));
             }
         }
-        if con_storage.contains(entity) {
-            resolve_name_in(name, world, entity, found);
+        if con_storage.contains(*entity) {
+            resolve_name_in(name, world, *entity, found);
         }
     }
-    
-    found
 }
